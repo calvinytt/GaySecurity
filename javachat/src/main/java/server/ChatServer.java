@@ -1,18 +1,6 @@
 package server;
 
 import java.net.*;
-import java.util.HashMap;
-import java.util.Map;
-
-import com.google.auth.oauth2.GoogleCredentials;
-import com.google.firebase.FirebaseApp;
-import com.google.firebase.FirebaseOptions;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
-
 import java.io.*;
 
 public class ChatServer implements Runnable
@@ -21,26 +9,36 @@ public class ChatServer implements Runnable
    private volatile Thread  thread = null;
    private int clientCount = 0;
 
-   private boolean finishGetAccountList;
-   private Account[] accounts;
+   private DatabaseConnect dbConnect = new DatabaseConnect();
+   private AccountList accounts = new AccountList();
+
+   public boolean Login(String encryptedId, String encryptedPassword)
+   {
+      // Encrypt id and pw
+      String id = encryptedId;
+      String password = encryptedPassword;
+
+      // Check account correct
+      return accounts.Contain(id, password);
+   }
 
    public ChatServer(int port)
    {  try
       {           
          // Firebase admin
-         if (!InitializeSDK())
+         if (!dbConnect.InitializeSDK())
          {
             System.out.println("Usage: initialize SDK fail");
             return;
          }
 
          // Get all account data from db
-         InitializeAccountList();
+         dbConnect.InitializeAccountList(accounts);
 
          // Start socket until getting account data finish
          try
          {
-            while (!finishGetAccountList)
+            while (accounts.IsEmpty())
             {
                Thread.sleep(1000);
             }
@@ -76,105 +74,6 @@ public class ChatServer implements Runnable
          thread = new Thread(this); 
          thread.start();
       }
-   }
-
-   private boolean InitializeSDK()
-   {
-      try {
-         FileInputStream serviceAccount = new FileInputStream("java-based-chatting-system-firebase-adminsdk-t0lnn-6dfbe94fdd.json");
-
-         Map<String, Object> auth = new HashMap<String, Object>();
-         auth.put("uid", "gaysecurity");  // uid
-   
-         FirebaseOptions options = new FirebaseOptions.Builder()
-         .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-         .setDatabaseUrl("https://java-based-chatting-system.firebaseio.com")
-         .setDatabaseAuthVariableOverride(auth) // set uid
-         .build();
-   
-         FirebaseApp.initializeApp(options);
-
-         System.out.println("Initialize SDK success");
-
-         // Success
-         return true;
-      } catch (Exception e) {
-         e.printStackTrace();
-
-         // Fail
-         return false;
-      }
-   }
-
-   private void InitializeAccountList()
-   {
-      // The app only has access as defined in the Security Rules
-      DatabaseReference ref = FirebaseDatabase
-      .getInstance()
-      .getReference().child("account");
-
-      System.out.println("Getting account list");
-
-      // Attach a listener to read the data at our posts reference
-      ref.addValueEventListener(new ValueEventListener() {
-         @Override
-         public void onDataChange(DataSnapshot dataSnapshot) {
-            // If no account or wrong path
-            if (!dataSnapshot.exists())
-            {
-               System.out.println("Account not found");
-               return;
-            }
-
-            // Read/Re-read account list
-            int accountCount = (int) dataSnapshot.getChildrenCount();
-            accounts = new Account[accountCount]; // create temp list
-
-            int index = 0;
-            for (DataSnapshot dataSnap : dataSnapshot.getChildren()) {
-               String id = (String) dataSnap.child("id").getValue();
-               String password = (String) dataSnap.child("password").getValue();
-               accounts[index] = new Account(id, password); // Store to list
-               index += 1;
-            }
-
-            System.out.println("Initialize account list success");
-
-            if (!finishGetAccountList) // List got check
-            {
-               finishGetAccountList = true;
-            }
-
-            PrintAccountList();  // Debug list
-         }
-      
-         @Override
-         public void onCancelled(DatabaseError databaseError) {
-            System.out.println("The read failed: " + databaseError.getCode());
-         }
-      });
-   }
-
-   private void PrintAccountList()
-   {
-      // If empty
-      if (!finishGetAccountList)
-      {
-         System.out.println("Usage: account list not initialized");
-         return;
-      }
-
-      System.out.println("------------------------------Account List-------------------------");
-      System.out.println("Amount of account: " + accounts.length);
-      System.out.println("------------------------------");
-      System.out.println("--id--\t--password--");
-
-      for (Account account : accounts)
-      {
-         System.out.println(account.GetId() + "\t" + account.GetPassword());
-      }
-
-      System.out.println("------------------------------end Account List-------------------------");
    }
 
    public void stop()
