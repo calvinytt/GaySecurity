@@ -10,10 +10,14 @@ public class ChatClient implements Runnable
    private DataOutputStream streamOut = null;
    private ChatClientThread client    = null;
 
+   BufferedReader input;
+   PrintWriter output;
+
    public ChatClient(String serverName, int serverPort)
    {  System.out.println("Establishing connection. Please wait ...");
       try
-      {  socket = new Socket(serverName, serverPort);
+      {  
+         socket = new Socket(serverName, serverPort);         
          System.out.println("Connected: " + socket);
          start();
       }
@@ -48,7 +52,28 @@ public class ChatClient implements Runnable
    {  console   = new BufferedReader(new InputStreamReader(System.in));
       streamOut = new DataOutputStream(socket.getOutputStream());
       if (thread == null)
-      {  client = new ChatClientThread(this, socket);
+      {  
+         // Sending account id and password
+         output = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
+
+         System.out.print("id: ");
+         String id = console.readLine();
+         output.println(id);
+
+         System.out.print("password: ");
+         String password = console.readLine();
+         output.println(password);
+
+         output.flush();
+
+         // Receiveing login result
+         input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+         String response = input.readLine();
+         System.out.println("This is the response: " + response);
+
+         // Open thread if success
+         client = new ChatClientThread(this, socket);
          thread = new Thread(this);                   
          thread.start();
       }
@@ -61,6 +86,10 @@ public class ChatClient implements Runnable
       {  if (console   != null)  console.close();
          if (streamOut != null)  streamOut.close();
          if (socket    != null)  socket.close();
+
+         // validate login socket
+         output.close();
+         input.close();
       }
       catch(IOException ioe)
       {  System.out.println("Error closing ..."); }

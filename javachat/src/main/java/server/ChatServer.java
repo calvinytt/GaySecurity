@@ -12,6 +12,9 @@ public class ChatServer implements Runnable
    private DatabaseConnect dbConnect = new DatabaseConnect();
    private AccountList accounts = new AccountList();
 
+   BufferedReader input;
+   PrintWriter output;
+
    public boolean Login(String encryptedId, String encryptedPassword)
    {
       // Encrypt id and pw
@@ -62,8 +65,10 @@ public class ChatServer implements Runnable
    {  Thread thisThread = Thread.currentThread();
       while (thread == thisThread)
       {  try
-         {  System.out.println("Waiting for a client ..."); 
-            addThread(server.accept()); }
+         {  
+            System.out.println("Waiting for a client ..."); 
+            addThread(server.accept());
+         }
          catch(IOException ioe)
          {  System.out.println("Server accept error: " + ioe); stop(); }
       }
@@ -80,6 +85,15 @@ public class ChatServer implements Runnable
    {  if (thread != null)
       {  thread = null;
       }
+
+      // validate login socket
+      try {
+         output.close();
+         input.close();
+      }
+      catch(IOException ioe)
+      {  System.out.println("Error closing ..."); }
+      
    }
    private int findClient(int ID)
    {  for (int i = 0; i < clientCount; i++)
@@ -112,12 +126,42 @@ public class ChatServer implements Runnable
    }
    private void addThread(Socket socket)
    {  if (clientCount < clients.length)
-      {  System.out.println("Client accepted: " + socket);
+      {  
+         // Validate account
+         try {
+            // System.out.println("Receive account id and password");
+            input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+            String id = input.readLine();
+            System.out.println("id: " + id);
+            String password = input.readLine();
+            System.out.println("password: " + password);
+
+            // System.out.println("Validate account");
+            output = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
+
+            if (false)
+            {
+               output.println("Welcome, " + id);
+            }
+            else
+            {
+               output.println("Login Failed");
+            }
+
+            output.flush();
+         } catch (Exception e) {
+            e.printStackTrace();
+         }
+
+         // Accept client
+         System.out.println("Client accepted: " + socket);
          clients[clientCount] = new ChatServerThread(this, socket);
          try
          {  clients[clientCount].open(); 
             clients[clientCount].start();  
-            clientCount++; }
+            clientCount++;
+         }
          catch(IOException ioe)
          {  System.out.println("Error opening thread: " + ioe); } }
       else
