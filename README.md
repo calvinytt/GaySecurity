@@ -28,5 +28,5 @@ java -jar target/gs-maven-0.1.0.jar 5432
 in src/main/java
 
 ```
-build client -> (java) java client/ChatClient localhost 5432
+build client -> java client/ChatClient localhost 5432
 ```
