@@ -1,7 +1,8 @@
 # javaChat
 
 ## Api
-Firebase https://firebase.google.com/docs/admin/setup\
+Firebase https://firebase.google.com/docs/admin/setup
+
 Javamail https://www.cnblogs.com/qingwen/p/5513090.html
 
 ## Prerequisites
