@@ -78,8 +78,10 @@ public class DatabaseConnect
                 for (DataSnapshot dataSnap : dataSnapshot.getChildren()) {
                     String id = (String) dataSnap.child("id").getValue();
                     String password = (String) dataSnap.child("password").getValue();
+                    String mail = (String) dataSnap.child("mail").getValue();
+                    String otp = (String) dataSnap.child("otp").getValue();
                     // accounts[index] = new Account(id, password); // Store to list
-                    accounts.Add(id, password);
+                    accounts.Add(id, password, mail, otp);
                     // index += 1;
                 }
 
@@ -94,4 +96,59 @@ public class DatabaseConnect
             }
         });
     }
+
+    // Store one time password
+    public void SaveOTP(String validId, String otp)
+    {
+        // The app only has access as defined in the Security Rules
+        DatabaseReference ref = FirebaseDatabase
+        .getInstance()
+        .getReference().child("account");
+
+        System.out.println("Save one time password");
+
+        // Attach a listener to read the data at our posts reference
+        ref.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                // If no account or wrong path
+                if (!dataSnapshot.exists())
+                {
+                    System.out.println("Account not found");
+                    return;
+                }
+
+                for (DataSnapshot dataSnap : dataSnapshot.getChildren()) {
+                    String id = (String) dataSnap.child("id").getValue();
+
+                    if (validId.equals(id))
+                    {
+                        String key = (String) dataSnap.getKey();
+                        System.out.println(key);
+
+                        DatabaseReference hopperRef = ref.child(key);
+                        Map<String, Object> hopperUpdates = new HashMap<>();
+                        hopperUpdates.put("otp", otp);
+
+                        hopperRef.updateChildrenAsync(hopperUpdates);
+
+                        break;
+                    }
+                    // accounts[index] = new Account(id, password); // Store to list
+                    // accounts.Add(id, password, mail);
+                    // index += 1;
+                }
+
+                System.out.println("Save otp success");
+
+                // accounts.PrintList();   // Debug
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                System.out.println("The read failed: " + databaseError.getCode());
+            }
+        });
+    }
+    
 }

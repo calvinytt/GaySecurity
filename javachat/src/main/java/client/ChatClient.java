@@ -72,10 +72,24 @@ public class ChatClient implements Runnable
          String response = input.readLine();
          System.out.println("This is the response: " + response);
 
-         // Open thread if success
-         client = new ChatClientThread(this, socket);
-         thread = new Thread(this);                   
-         thread.start();
+         // Send otp
+         if (!response.equals("Login Failed"))
+         {
+            System.out.print("otp: ");
+            String otp = console.readLine();
+            output.println(otp);
+   
+            output.flush();
+   
+            // Receive response
+            String otpResponse = input.readLine();
+            System.out.println("This is the response: " + otpResponse);
+   
+            // Open thread if success
+            client = new ChatClientThread(this, socket);
+            thread = new Thread(this);                   
+            thread.start();
+         }
       }
    }
    public void stop()

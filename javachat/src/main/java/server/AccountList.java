@@ -13,9 +13,9 @@ public class AccountList
     }
 
     // Add account when initializing
-    public void Add(String id, String password)
+    public void Add(String id, String password, String mail, String otp)
     {
-        list.add(new Account(id, password));
+        list.add(new Account(id, password, mail, otp));
     }
 
     // Clear for initialize again when db edited
@@ -38,6 +38,21 @@ public class AccountList
         return false;
     }
 
+    // Get mail by id after login success
+    public String GetMail(String id)
+    {
+        for (Account account : list)
+        {
+            if (account.GetId().equals(id))
+            {
+                return account.GetMail();
+            }
+        }
+
+        System.out.println("No this id");
+        return null;
+    }
+
     // Debug
     public void PrintList()
     {
@@ -51,11 +66,11 @@ public class AccountList
         System.out.println("------------------------------Account List-------------------------");
         System.out.println("Amount of account: " + list.size());
         System.out.println("------------------------------");
-        System.out.println("--id--\t--password--");
+        System.out.println("--id--\t--password--\t--mail--\t--otp");
     
         for (Account account : list)
         {
-            System.out.println(account.GetId() + "\t" + account.GetPassword());
+            System.out.println(account.GetId() + "\t" + account.GetPassword() + "\t" + account.GetMail() + "\t" + account.GetOtp());
         }
     
         System.out.println("------------------------------end Account List-------------------------");

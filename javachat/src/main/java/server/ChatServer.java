@@ -2,6 +2,7 @@ package server;
 
 import java.net.*;
 import java.io.*;
+import java.util.Random;
 
 public class ChatServer implements Runnable
 {  private ChatServerThread clients[] = new ChatServerThread[50];
@@ -12,8 +13,35 @@ public class ChatServer implements Runnable
    private DatabaseConnect dbConnect = new DatabaseConnect();
    private AccountList accounts = new AccountList();
 
+   private SendMailSSL mailSSL = new SendMailSSL();  // send otp
+   private Random rand = new Random();
+   private int otpLength = 32;
+   private float numberPercent = 0.16129032f;  // 10 / (10 + 26 + 26)
+
    BufferedReader input;
    PrintWriter output;
+
+   // 32 letter of number or alpha
+   public String RandomOTP()
+   {
+      String otp = "";
+
+      for(int index = 0; index < otpLength; index++)
+      {
+         float randFloat = rand.nextFloat();
+
+         if (randFloat < numberPercent)  // rand number
+         {
+            otp += (char) (rand.nextInt(10) + 48);   // 0-9 + 48
+         }
+         else  // rand alpha
+         {
+            otp += (char) (rand.nextInt(26) + 65 + (rand.nextInt(2) == 0 ? 0 : 32)) ;   // 0-25 + 65 + 0/32(upper/lower)
+         }
+      }
+
+      return otp;
+   }
 
    public boolean Login(String encryptedId, String encryptedPassword)
    {
@@ -127,6 +155,9 @@ public class ChatServer implements Runnable
    private void addThread(Socket socket)
    {  if (clientCount < clients.length)
       {  
+         boolean validAccount = false;
+         boolean validOtp = false;
+
          // Validate account
          try {
             // System.out.println("Receive account id and password");
@@ -140,9 +171,35 @@ public class ChatServer implements Runnable
             // System.out.println("Validate account");
             output = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
 
-            if (false)
+            validAccount = accounts.Contain(id, password);
+
+            if (validAccount)
             {
+               // random otp
+               String otp = RandomOTP();
+
+               // Set to db
+               dbConnect.SaveOTP(id, otp);
+
+               // Send to mail
+               mailSSL.SendMail(accounts.GetMail(id), otp);
+               
+               // Receive otp
                output.println("Welcome, " + id);
+               output.flush();   // progress flush
+
+               String inputOtp = input.readLine();
+               System.out.println("otp: " + inputOtp);
+
+               if (otp.equals(inputOtp))
+               {
+                  output.println("Correct otp");
+                  validOtp = true;
+               }
+               else
+               {
+                  output.println("Login Failed");
+               }
             }
             else
             {
@@ -154,16 +211,19 @@ public class ChatServer implements Runnable
             e.printStackTrace();
          }
 
-         // Accept client
-         System.out.println("Client accepted: " + socket);
-         clients[clientCount] = new ChatServerThread(this, socket);
-         try
-         {  clients[clientCount].open(); 
-            clients[clientCount].start();  
-            clientCount++;
+         if (validAccount && validOtp)
+         {
+            // Accept client
+            System.out.println("Client accepted: " + socket);
+            clients[clientCount] = new ChatServerThread(this, socket);
+            try
+            {  clients[clientCount].open(); 
+               clients[clientCount].start();  
+               clientCount++;
+            }
+            catch(IOException ioe)
+            {  System.out.println("Error opening thread: " + ioe); } }
          }
-         catch(IOException ioe)
-         {  System.out.println("Error opening thread: " + ioe); } }
       else
          System.out.println("Client refused: maximum " + clients.length + " reached.");
    }
