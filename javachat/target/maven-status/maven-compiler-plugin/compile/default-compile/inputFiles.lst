@@ -1,6 +1,10 @@
+/Users/jackylam/Documents/GitHub/GaySecurity/javachat/src/main/java/server/Account.java
 /Users/jackylam/Documents/GitHub/GaySecurity/javachat/src/main/java/server/ChatServerThread.java
+/Users/jackylam/Documents/GitHub/GaySecurity/javachat/src/main/java/server/AccountList.java
+/Users/jackylam/Documents/GitHub/GaySecurity/javachat/src/main/java/server/SendMailSSL.java
 /Users/jackylam/Documents/GitHub/GaySecurity/javachat/src/main/java/client/ChatClient.java
 /Users/jackylam/Documents/GitHub/GaySecurity/javachat/src/main/java/client/ChatClientThread.java
 /Users/jackylam/Documents/GitHub/GaySecurity/javachat/src/main/java/hello/HelloWorld.java
+/Users/jackylam/Documents/GitHub/GaySecurity/javachat/src/main/java/server/DatabaseConnect.java
 /Users/jackylam/Documents/GitHub/GaySecurity/javachat/src/main/java/server/ChatServer.java
 /Users/jackylam/Documents/GitHub/GaySecurity/javachat/src/main/java/hello/Greeter.java

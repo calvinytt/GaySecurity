@@ -1,12 +1,8 @@
 package server;
 
 import java.net.*;
-
-import com.google.auth.oauth2.GoogleCredentials;
-import com.google.firebase.FirebaseApp;
-import com.google.firebase.FirebaseOptions;
-
 import java.io.*;
+import java.util.Random;
 
 public class ChatServer implements Runnable
 {  private ChatServerThread clients[] = new ChatServerThread[50];
@@ -14,12 +10,82 @@ public class ChatServer implements Runnable
    private volatile Thread  thread = null;
    private int clientCount = 0;
 
+   private DatabaseConnect dbConnect = new DatabaseConnect();
+   private AccountList accounts = new AccountList();
+
+   private SendMailSSL mailSSL = new SendMailSSL();  // send otp
+   private Random rand = new Random();
+   private int otpLength = 32;
+   private float numberPercent = 0.16129032f;  // 10 / (10 + 26 + 26)
+
+   BufferedReader input;
+   PrintWriter output;
+
+   // 32 letter of number or alpha
+   public String RandomOTP()
+   {
+      String otp = "";
+
+      for(int index = 0; index < otpLength; index++)
+      {
+         float randFloat = rand.nextFloat();
+
+         if (randFloat < numberPercent)  // rand number
+         {
+            otp += (char) (rand.nextInt(10) + 48);   // 0-9 + 48
+         }
+         else  // rand alpha
+         {
+            otp += (char) (rand.nextInt(26) + 65 + (rand.nextInt(2) == 0 ? 0 : 32)) ;   // 0-25 + 65 + 0/32(upper/lower)
+         }
+      }
+
+      return otp;
+   }
+
+   public boolean Login(String encryptedId, String encryptedPassword)
+   {
+      // Encrypt id and pw
+      String id = encryptedId;
+      String password = encryptedPassword;
+
+      // Check account correct
+      return accounts.Contain(id, password);
+   }
+
    public ChatServer(int port)
    {  try
-      {  System.out.println("Binding to port " + port + ", please wait  ...");
-         server = new ServerSocket(port);  
-         System.out.println("Server started: " + server);
-         start(); }
+      {           
+         // Firebase admin
+         if (!dbConnect.InitializeSDK())
+         {
+            System.out.println("Usage: initialize SDK fail");
+            return;
+         }
+
+         // Get all account data from db
+         dbConnect.InitializeAccountList(accounts);
+
+         // Start socket until getting account data finish
+         try
+         {
+            while (accounts.IsEmpty())
+            {
+               Thread.sleep(1000);
+            }
+         }
+         catch(InterruptedException ex)
+         {
+            Thread.currentThread().interrupt();
+         }
+         finally
+         {
+            System.out.println("Binding to port " + port + ", please wait  ...");
+            server = new ServerSocket(port);  
+            System.out.println("Server started: " + server);
+            start();
+         }
+      }
       catch(IOException ioe)
       {  System.out.println("Can not bind to port " + port + ": " + ioe.getMessage()); }
    }
@@ -27,35 +93,35 @@ public class ChatServer implements Runnable
    {  Thread thisThread = Thread.currentThread();
       while (thread == thisThread)
       {  try
-         {  System.out.println("Waiting for a client ..."); 
-            addThread(server.accept()); }
+         {  
+            System.out.println("Waiting for a client ..."); 
+            addThread(server.accept());
+         }
          catch(IOException ioe)
          {  System.out.println("Server accept error: " + ioe); stop(); }
       }
    }
-   public void start() throws IOException
+   public void start()
    {  if (thread == null)
       {  
-         // Firebase admin
-         FileInputStream serviceAccount =
-         new FileInputStream("java-based-chatting-system-firebase-adminsdk-t0lnn-6dfbe94fdd.json");
-
-         FirebaseOptions options = new FirebaseOptions.Builder()
-         .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-         .setDatabaseUrl("https://java-based-chatting-system.firebaseio.com")
-         .build();
-
-         FirebaseApp.initializeApp(options);
-
-         // New thread
          thread = new Thread(this); 
          thread.start();
       }
    }
+
    public void stop()
    {  if (thread != null)
       {  thread = null;
       }
+
+      // validate login socket
+      try {
+         output.close();
+         input.close();
+      }
+      catch(IOException ioe)
+      {  System.out.println("Error closing ..."); }
+      
    }
    private int findClient(int ID)
    {  for (int i = 0; i < clientCount; i++)
@@ -88,14 +154,76 @@ public class ChatServer implements Runnable
    }
    private void addThread(Socket socket)
    {  if (clientCount < clients.length)
-      {  System.out.println("Client accepted: " + socket);
-         clients[clientCount] = new ChatServerThread(this, socket);
-         try
-         {  clients[clientCount].open(); 
-            clients[clientCount].start();  
-            clientCount++; }
-         catch(IOException ioe)
-         {  System.out.println("Error opening thread: " + ioe); } }
+      {  
+         boolean validAccount = false;
+         boolean validOtp = false;
+
+         // Validate account
+         try {
+            // System.out.println("Receive account id and password");
+            input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+            String id = input.readLine();
+            System.out.println("id: " + id);
+            String password = input.readLine();
+            System.out.println("password: " + password);
+
+            // System.out.println("Validate account");
+            output = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
+
+            validAccount = accounts.Contain(id, password);
+
+            if (validAccount)
+            {
+               // random otp
+               String otp = RandomOTP();
+
+               // Set to db
+               dbConnect.SaveOTP(id, otp);
+
+               // Send to mail
+               mailSSL.SendMail(accounts.GetMail(id), otp);
+               
+               // Receive otp
+               output.println("Welcome, " + id);
+               output.flush();   // progress flush
+
+               String inputOtp = input.readLine();
+               System.out.println("otp: " + inputOtp);
+
+               if (otp.equals(inputOtp))
+               {
+                  output.println("Correct otp");
+                  validOtp = true;
+               }
+               else
+               {
+                  output.println("Login Failed");
+               }
+            }
+            else
+            {
+               output.println("Login Failed");
+            }
+
+            output.flush();
+         } catch (Exception e) {
+            e.printStackTrace();
+         }
+
+         if (validAccount && validOtp)
+         {
+            // Accept client
+            System.out.println("Client accepted: " + socket);
+            clients[clientCount] = new ChatServerThread(this, socket);
+            try
+            {  clients[clientCount].open(); 
+               clients[clientCount].start();  
+               clientCount++;
+            }
+            catch(IOException ioe)
+            {  System.out.println("Error opening thread: " + ioe); } }
+         }
       else
          System.out.println("Client refused: maximum " + clients.length + " reached.");
    }
