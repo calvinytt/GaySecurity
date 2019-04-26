@@ -61,6 +61,7 @@ public class ChatClient implements Runnable
          socket = new Socket(serverName, serverPort);         
          System.out.println("Connected: " + socket);
 
+         // Added here
          genRSAKey();
 
          start();
