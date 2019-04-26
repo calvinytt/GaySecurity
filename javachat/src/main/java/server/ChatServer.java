@@ -130,12 +130,30 @@ public class ChatServer implements Runnable
       return -1;
    }
    public synchronized void handle(int ID, String input)
-   {  if (input.equals(".bye"))
-      {  clients[findClient(ID)].send(".bye");
-         remove(ID); }
-      else
-         for (int i = 0; i < clientCount; i++)
-            clients[i].send(ID + ": " + input);   
+   {  String[] splitInput = input.split(" ");
+   //      System.out.println(clientCount);
+         System.out.println(input);
+         if (input.equals(".bye")) {
+            clients[findClient(ID)].send(".bye");
+            remove(ID);
+         } else if (input.equals("Client Connect")) {
+            if (clientCount > 1) {
+               clients[clientCount - 1].send("public key");
+            }else{
+               clients[0].send("secret key");
+            }
+         }else if (splitInput[0].equals("public")) {
+            System.out.println(splitInput[2]);
+            clients[0].send(input);
+         }  else if (input.equals("secret key gen success")) {
+            System.out.println(input);
+         } else if (splitInput[0].equals("secret")) {
+            System.out.println(splitInput[2]);
+            clients[clientCount - 1].send(input);;
+         } else {
+            for (int i = 0; i < clientCount; i++)
+               clients[i].send(ID + ": " + input);
+         }
    }
    public synchronized void remove(int ID)
    {  int pos = findClient(ID);
