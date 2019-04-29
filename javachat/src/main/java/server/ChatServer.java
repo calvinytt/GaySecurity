@@ -33,6 +33,8 @@ public class ChatServer implements Runnable
    private static final String SERVER_KEY_STORE_PASSWORD  = "password";
    private static final String SERVER_TRUST_KEY_STORE_PASSWORD = "password";
 
+   private final String path = "src/main/java/server/";
+
    // 32 letter of number or alpha
    public String RandomOTP()
    {
@@ -85,7 +87,7 @@ public class ChatServer implements Runnable
       } finally {
          System.out.println("Binding to port " + port + ", please wait  ...");
          // server = new ServerSocket(port);
-         init(port);
+         init(port); // cert
          System.out.println("Server started: " + server);
          start();
       }
@@ -243,8 +245,8 @@ public class ChatServer implements Runnable
          TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
          KeyStore ks = KeyStore.getInstance("JKS");
          KeyStore tks = KeyStore.getInstance("JKS");
-         ks.load(new FileInputStream("src/main/java/server/kserver.keystore"), SERVER_KEY_STORE_PASSWORD.toCharArray());
-         tks.load(new FileInputStream("src/main/java/server/tserver.keystore"), SERVER_TRUST_KEY_STORE_PASSWORD.toCharArray());
+         ks.load(new FileInputStream(path + "kserver.keystore"), SERVER_KEY_STORE_PASSWORD.toCharArray());
+         tks.load(new FileInputStream(path + "tserver.keystore"), SERVER_TRUST_KEY_STORE_PASSWORD.toCharArray());
          kmf.init(ks, SERVER_KEY_STORE_PASSWORD.toCharArray());
          tmf.init(tks);
          ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);

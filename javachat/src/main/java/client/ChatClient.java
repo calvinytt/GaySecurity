@@ -3,6 +3,18 @@ package client;
 import java.net.*;
 import java.io.*;
 
+import java.security.KeyStore;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.TrustManagerFactory;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.sql.SQLOutput;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.util.Arrays;
+
 public class ChatClient implements Runnable
 {  private Socket socket              = null;
    private volatile Thread thread     = null;
@@ -13,11 +25,19 @@ public class ChatClient implements Runnable
    BufferedReader input;
    PrintWriter output;
 
+   private static final String CLIENT_KEY_STORE_PASSWORD  = "password";
+   private static final String CLIENT_TRUST_KEY_STORE_PASSWORD = "password";
+
+   private final String path = "client/";
+
    public ChatClient(String serverName, int serverPort)
    {  System.out.println("Establishing connection. Please wait ...");
       try
       {  
-         socket = new Socket(serverName, serverPort);         
+         // socket = new Socket(serverName, serverPort);
+         init(serverName,serverPort);  // socket + cert
+         
+         
          System.out.println("Connected: " + socket);
          start();
       }
@@ -116,5 +136,23 @@ public class ChatClient implements Runnable
          System.out.println("Usage: java ChatClient host port");
       else
          client = new ChatClient(args[0], Integer.parseInt(args[1]));
+   }
+
+   public void init(String serverName, int serverPort) {
+      try {
+         SSLContext ctx = SSLContext.getInstance("SSL");
+         KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+         TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
+         KeyStore ks = KeyStore.getInstance("JKS");
+         KeyStore tks = KeyStore.getInstance("JKS");
+         ks.load(new FileInputStream(path + "kclient.keystore"), CLIENT_KEY_STORE_PASSWORD.toCharArray());
+         tks.load(new FileInputStream(path + "tclient.keystore"), CLIENT_TRUST_KEY_STORE_PASSWORD.toCharArray());
+         kmf.init(ks, CLIENT_KEY_STORE_PASSWORD.toCharArray());
+         tmf.init(tks);
+         ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+         socket = (SSLSocket) ctx.getSocketFactory().createSocket(serverName, serverPort);
+      } catch (Exception e) {
+         System.out.println(e);
+      }
    }
 }
