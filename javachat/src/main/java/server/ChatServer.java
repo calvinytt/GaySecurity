@@ -4,9 +4,18 @@ import java.net.*;
 import java.io.*;
 import java.util.Random;
 
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.TrustManagerFactory;
+import java.io.FileInputStream;
+import java.net.Socket;
+import java.security.KeyStore;
+
 public class ChatServer implements Runnable
 {  private ChatServerThread clients[] = new ChatServerThread[50];
-   private ServerSocket server = null;
+   // private ServerSocket server = null;
+   private SSLServerSocket server = null;
    private volatile Thread  thread = null;
    private int clientCount = 0;
 
@@ -20,6 +29,9 @@ public class ChatServer implements Runnable
 
    BufferedReader input;
    PrintWriter output;
+
+   private static final String SERVER_KEY_STORE_PASSWORD  = "password";
+   private static final String SERVER_TRUST_KEY_STORE_PASSWORD = "password";
 
    // 32 letter of number or alpha
    public String RandomOTP()
@@ -54,40 +66,29 @@ public class ChatServer implements Runnable
    }
 
    public ChatServer(int port)
-   {  try
-      {           
-         // Firebase admin
-         if (!dbConnect.InitializeSDK())
-         {
-            System.out.println("Usage: initialize SDK fail");
-            return;
-         }
-
-         // Get all account data from db
-         dbConnect.InitializeAccountList(accounts);
-
-         // Start socket until getting account data finish
-         try
-         {
-            while (accounts.IsEmpty())
-            {
-               Thread.sleep(1000);
-            }
-         }
-         catch(InterruptedException ex)
-         {
-            Thread.currentThread().interrupt();
-         }
-         finally
-         {
-            System.out.println("Binding to port " + port + ", please wait  ...");
-            server = new ServerSocket(port);  
-            System.out.println("Server started: " + server);
-            start();
-         }
+   {  // Firebase admin
+      if (!dbConnect.InitializeSDK()) {
+         System.out.println("Usage: initialize SDK fail");
+         return;
       }
-      catch(IOException ioe)
-      {  System.out.println("Can not bind to port " + port + ": " + ioe.getMessage()); }
+
+      // Get all account data from db
+      dbConnect.InitializeAccountList(accounts);
+
+      // Start socket until getting account data finish
+      try {
+         while (accounts.IsEmpty()) {
+            Thread.sleep(1000);
+         }
+      } catch (InterruptedException ex) {
+         Thread.currentThread().interrupt();
+      } finally {
+         System.out.println("Binding to port " + port + ", please wait  ...");
+         // server = new ServerSocket(port);
+         init(port);
+         System.out.println("Server started: " + server);
+         start();
+      }
    }
    public void run()
    {  Thread thisThread = Thread.currentThread();
@@ -233,5 +234,24 @@ public class ChatServer implements Runnable
          System.out.println("Usage: java ChatServer port");
       else
          server = new ChatServer(Integer.parseInt(args[0]));
+   }
+
+   public void init(int port) {
+      try {
+         SSLContext ctx = SSLContext.getInstance("SSL");
+         KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+         TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
+         KeyStore ks = KeyStore.getInstance("JKS");
+         KeyStore tks = KeyStore.getInstance("JKS");
+         ks.load(new FileInputStream("src/main/java/server/kserver.keystore"), SERVER_KEY_STORE_PASSWORD.toCharArray());
+         tks.load(new FileInputStream("src/main/java/server/tserver.keystore"), SERVER_TRUST_KEY_STORE_PASSWORD.toCharArray());
+         kmf.init(ks, SERVER_KEY_STORE_PASSWORD.toCharArray());
+         tmf.init(tks);
+         ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+         server = (SSLServerSocket) ctx.getServerSocketFactory().createServerSocket(port);
+         server.setNeedClientAuth(true);
+      } catch (Exception e) {
+         e.printStackTrace();
+      }
    }
 }
