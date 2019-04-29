@@ -24,9 +24,15 @@ mvn install
 java -jar target/gs-maven-0.1.0.jar 5432
 ```
 
-### Run client
 in src/main/java
 
+### Build server
 ```
-build client -> java client/ChatClient localhost 5432
+javac client/*.java
+```
+
+### Run client
+
+```
+java client/ChatClient localhost 5432
 ```
