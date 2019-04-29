@@ -34,7 +34,7 @@ public class SendMailSSL
 
         try {
             Message message = new MimeMessage(session);
-            message.setFrom(new InternetAddress("17200113@life.hkbu.edu.hk"));  // From
+            message.setFrom(new InternetAddress(fromMail));  // From
             message.setRecipients(Message.RecipientType.TO,
                     InternetAddress.parse(toMail));    // To
             message.setSubject("Java-chat One Time Password");  // Topic
