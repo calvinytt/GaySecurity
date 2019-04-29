@@ -129,12 +129,12 @@ public class ChatServer implements Runnable
       }
 
       // validate login socket
-      try {
-         output.close();
-         input.close();
-      }
-      catch(IOException ioe)
-      {  System.out.println("Error closing ..."); }
+      // try {
+      //    output.close();
+      //    input.close();
+      // }
+      // catch(IOException ioe)
+      // {  System.out.println("Error closing ..."); }
       
    }
    private int findClient(int ID)
