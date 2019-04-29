@@ -15,8 +15,32 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 
+import java.security.InvalidKeyException;
+import java.security.KeyFactory;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.SecureRandom;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.SecretKeySpec;
+import javax.crypto.SecretKey;
+import javax.crypto.KeyGenerator;
+import javax.swing.JOptionPane;
+import javax.crypto.SecretKeyFactory;
+import java.util.Base64;
+
 public class ChatClient implements Runnable
-{  private Socket socket              = null;
+{  private SSLSocket socket              = null;
+   // private Socket socket              = null;
    private volatile Thread thread     = null;
    private BufferedReader   console   = null;
    private DataOutputStream streamOut = null;
@@ -30,6 +54,20 @@ public class ChatClient implements Runnable
 
    private final String path = "client/";
 
+   private String plainText = null;
+   KeyGenerator keyGenerator;
+   private static Cipher cipherDES = null;
+   SecretKey secretKey;
+
+   //public and private
+   private KeyPair pair;
+   KeyPairGenerator generateKeyPair;
+   private PrivateKey privateKey;
+   private PublicKey publicKey;
+   private byte[] bypublicKey;
+   private byte[] byprivateKey;
+   private Cipher cipherRSA;
+
    public ChatClient(String serverName, int serverPort)
    {  System.out.println("Establishing connection. Please wait ...");
       try
@@ -37,13 +75,12 @@ public class ChatClient implements Runnable
          // socket = new Socket(serverName, serverPort);
          init(serverName,serverPort);  // socket + cert
          
+         genRSAKey();   // RSA key
          
          System.out.println("Connected: " + socket);
          start();
       }
-      catch(UnknownHostException uhe)
-      {  System.out.println("Host unknown: " + uhe.getMessage()); }
-      catch(IOException ioe)
+      catch(Exception ioe)
       {  System.out.println("Unexpected exception: " + ioe.getMessage()); }
    }
    public void run()
@@ -51,23 +88,60 @@ public class ChatClient implements Runnable
       while (thread == thisThread)
       while (thread != null)
       {  try
-         {  streamOut.writeUTF(console.readLine());
+         {  
+            // Encrypt
+            cipherDES = Cipher.getInstance("DESede");
+            plainText = console.readLine();
+            byte[] plainTextByte = plainText.getBytes("UTF8");
+            byte[] encryptedBytes = encrypt(plainTextByte, secretKey);
+            String encryptedText = Base64.getEncoder().encodeToString(encryptedBytes);
+
+            streamOut.writeUTF(encryptedText);
+            // streamOut.writeUTF(console.readLine());
             streamOut.flush();
          }
-         catch(IOException ioe)
+         catch(Exception ioe)
          {  System.out.println("Sending error: " + ioe.getMessage());
             stop();
          }
       }
    }
    public void handle(String msg)
-   {  if (msg.equals(".bye"))
-      {  System.out.println("Good bye. Press RETURN to exit ...");
-         stop();
+   {  try {
+         String[] splitInput = msg.split(" ");
+         if (msg.equals(".bye")) {
+            System.out.println("Good bye. Press RETURN to exit ...");
+            stop();
+         } else if (msg.equals("public key")) {
+            byte[] bypublicKey = this.publicKey.getEncoded();
+            byte[] byprivateKey = this.privateKey.getEncoded();
+            String publicKeyText = Base64.getEncoder().encodeToString(bypublicKey);
+            streamOut.writeUTF("public : " + publicKeyText);
+            streamOut.flush();
+         } else if (msg.equals("secret key")) {
+            genSecretKey();
+            streamOut.writeUTF("secret key gen success");
+            streamOut.flush();
+         } else if (splitInput[0].equals("public")) {
+            byte[] newbypublicKey = Base64.getDecoder().decode(splitInput[2]);
+            PublicKey newPublicKey =
+                  KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(newbypublicKey));
+            String secretKeyText = encryptTextByPublic(Base64.getEncoder().encodeToString(secretKey.getEncoded()), newPublicKey);
+            streamOut.writeUTF("secret : " + secretKeyText);
+            streamOut.flush();
+         } else if (splitInput[0].equals("secret")) {
+            byte[] bySecretKey = Base64.getDecoder().decode(decrypTextByPrivate(splitInput[2], privateKey));
+            secretKey = new SecretKeySpec(bySecretKey, 0, bySecretKey.length, "DESede");
+         } else {
+            byte[] decryptedBytes = decrypt(Base64.getDecoder().decode(splitInput[1]), secretKey);
+            String decryptedText = new String(decryptedBytes, "UTF8");
+            System.out.println(splitInput[0] + decryptedText);
       }
-      else
-         System.out.println(msg);
+      } catch (Exception e){
+         System.out.println("Sending error: " + e.getMessage());
+      }
    }
+
    public void start() throws IOException
    {  console   = new BufferedReader(new InputStreamReader(System.in));
       streamOut = new DataOutputStream(socket.getOutputStream());
@@ -109,6 +183,10 @@ public class ChatClient implements Runnable
             client = new ChatClientThread(this, socket);
             thread = new Thread(this);                   
             thread.start();
+
+            // Send connect
+            streamOut.writeUTF("Client Connect");
+            streamOut.flush();
          }
       }
    }
@@ -154,5 +232,64 @@ public class ChatClient implements Runnable
       } catch (Exception e) {
          System.out.println(e);
       }
+   }
+
+   public void genRSAKey() throws NoSuchAlgorithmException,NoSuchPaddingException{
+      KeyPairGenerator generateKeyPair = KeyPairGenerator.getInstance("RSA");
+      generateKeyPair.initialize(1024);
+      pair = generateKeyPair.generateKeyPair();
+      privateKey = pair.getPrivate();
+      publicKey = pair.getPublic();
+      this.cipherRSA = Cipher.getInstance("RSA");
+   }
+   public void genSecretKey(){
+      try {
+         keyGenerator = KeyGenerator.getInstance("DESede");
+         keyGenerator.init(168);
+         secretKey = keyGenerator.generateKey();
+
+      }catch (NoSuchAlgorithmException e){
+         System.out.println("Sending error: " + e.getMessage());
+      }
+   }
+   public byte[] encrypt(byte[] plainTextByte, SecretKey secretKey)
+           throws Exception {
+      cipherDES.init(Cipher.ENCRYPT_MODE, secretKey);
+      byte[] encryptedBytes = cipherDES.doFinal(plainTextByte);
+      return encryptedBytes;
+   }
+   public byte[] decrypt(byte[] encryptedBytes, SecretKey secretKey)
+           throws Exception {
+      cipherDES.init(Cipher.DECRYPT_MODE, secretKey);
+      byte[] decryptedBytes = cipherDES.doFinal(encryptedBytes);
+      return decryptedBytes;
+   }
+
+   public String encryptTextByPrivate(String msg, PrivateKey key)
+           throws NoSuchAlgorithmException, NoSuchPaddingException,
+           UnsupportedEncodingException, IllegalBlockSizeException,
+           BadPaddingException, InvalidKeyException {
+      this.cipherRSA.init(Cipher.ENCRYPT_MODE, key);
+      return Base64.getEncoder().encodeToString(cipherRSA.doFinal(msg.getBytes("UTF-8")));
+   }
+   public String encryptTextByPublic(String msg, PublicKey key)
+           throws NoSuchAlgorithmException, NoSuchPaddingException,
+           UnsupportedEncodingException, IllegalBlockSizeException,
+           BadPaddingException, InvalidKeyException {
+      this.cipherRSA.init(Cipher.ENCRYPT_MODE, key);
+      return Base64.getEncoder().encodeToString(cipherRSA.doFinal(msg.getBytes("UTF-8")));
+   }
+
+   public String decryptText(String msg, PublicKey key)
+           throws InvalidKeyException, UnsupportedEncodingException,
+           IllegalBlockSizeException, BadPaddingException {
+      this.cipherRSA.init(Cipher.DECRYPT_MODE, key);
+      return Base64.getEncoder().encodeToString(cipherRSA.doFinal(msg.getBytes("UTF-8")));
+   }
+   public String decrypTextByPrivate(String msg, PrivateKey key)
+           throws InvalidKeyException, UnsupportedEncodingException,
+           IllegalBlockSizeException, BadPaddingException {
+      this.cipherRSA.init(Cipher.DECRYPT_MODE, key);
+      return new String(cipherRSA.doFinal(Base64.getDecoder().decode(msg)), "UTF-8");
    }
 }
