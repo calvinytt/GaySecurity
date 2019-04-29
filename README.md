@@ -24,7 +24,7 @@ mvn install
 java -jar target/gs-maven-0.1.0.jar 5432
 ```
 
-### Build server
+### Build client
 in src/main/java
 
 ```
