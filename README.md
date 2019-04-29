@@ -20,6 +20,7 @@ mvn install
 ```
 
 ### Run server
+in src/main/java
 ```
 java -jar target/gs-maven-0.1.0.jar 5432
 ```
