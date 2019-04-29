@@ -98,7 +98,22 @@ public class ChatServer implements Runnable
       {  try
          {  
             System.out.println("Waiting for a client ..."); 
-            addThread(server.accept());
+
+            // Thread validationThread = new Thread(){
+            //    public void run(){
+            //       try {
+            //          addThread(server.accept());
+            //       } catch (Exception e) {
+            //          e.printStackTrace();
+            //       }            
+            //    }
+            // };
+           
+            // validationThread.start();
+
+            Socket serverAccept = server.accept();
+
+            addThread(serverAccept);
          }
          catch(IOException ioe)
          {  System.out.println("Server accept error: " + ioe); stop(); }
@@ -132,7 +147,7 @@ public class ChatServer implements Runnable
             return i;
       return -1;
    }
-   public synchronized void handle(int ID, String input)
+   public synchronized void handle(int ID, String input, String accountId)
    {  
       String[] splitInput = input.split(" ");
    //      System.out.println(clientCount);
@@ -156,7 +171,8 @@ public class ChatServer implements Runnable
          clients[clientCount - 1].send(input);;
       } else {
          for (int i = 0; i < clientCount; i++)
-            clients[i].send(ID + ": " + input);
+            // clients[i].send(ID + ": " + input);
+            clients[i].send(accountId + ": " + input);   // User identification
       }
    }
    public synchronized void remove(int ID)
@@ -179,6 +195,8 @@ public class ChatServer implements Runnable
       {  
          boolean validAccount = false;
          boolean validOtp = false;
+
+         String accountId = "";
 
          // Validate account
          try {
@@ -217,6 +235,8 @@ public class ChatServer implements Runnable
                {
                   output.println("Correct otp");
                   validOtp = true;
+
+                  accountId = id;  // Store login id
                }
                else
                {
@@ -237,7 +257,8 @@ public class ChatServer implements Runnable
          {
             // Accept client
             System.out.println("Client accepted: " + socket);
-            clients[clientCount] = new ChatServerThread(this, socket);
+            // clients[clientCount] = new ChatServerThread(this, socket);
+            clients[clientCount] = new ChatServerThread(this, socket, accountId);  // Also pass account id
             try
             {  clients[clientCount].open(); 
                clients[clientCount].start();  

@@ -11,11 +11,15 @@ public class ChatServerThread extends Thread
    private DataOutputStream streamOut = null;
    private volatile Thread  thread    = null;
 
-   public ChatServerThread(ChatServer _server, Socket _socket)
+   private String accountId;
+
+   public ChatServerThread(ChatServer _server, Socket _socket, String accountId)
    {  super();
       server = _server;
       socket = _socket;
       ID     = socket.getPort();
+
+      this.accountId = accountId;   // Account id identification
    }
    public void send(String msg)
    {   try
@@ -37,7 +41,8 @@ public class ChatServerThread extends Thread
       while (thread == thisThread)
       {  try
          {  
-            server.handle(ID, streamIn.readUTF());
+            // server.handle(ID, streamIn.readUTF());
+            server.handle(ID, streamIn.readUTF(), accountId);
          }
          catch(IOException ioe)
          {  System.out.println(ID + " ERROR reading: " + ioe.getMessage());

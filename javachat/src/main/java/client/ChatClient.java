@@ -108,11 +108,13 @@ public class ChatClient implements Runnable
    }
    public void handle(String msg)
    {  try {
+         // System.out.println(msg);
          String[] splitInput = msg.split(" ");
-         if (msg.equals(".bye")) {
-            System.out.println("Good bye. Press RETURN to exit ...");
-            stop();
-         } else if (msg.equals("public key")) {
+         // if (msg.equals(".bye")) {
+         //    System.out.println("Good bye. Press RETURN to exit ...");
+         //    stop();
+         // } else 
+         if (msg.equals("public key")) {
             byte[] bypublicKey = this.publicKey.getEncoded();
             byte[] byprivateKey = this.privateKey.getEncoded();
             String publicKeyText = Base64.getEncoder().encodeToString(bypublicKey);
@@ -135,8 +137,18 @@ public class ChatClient implements Runnable
          } else {
             byte[] decryptedBytes = decrypt(Base64.getDecoder().decode(splitInput[1]), secretKey);
             String decryptedText = new String(decryptedBytes, "UTF8");
-            System.out.println(splitInput[0] + decryptedText);
-      }
+
+            // Exit the console
+            if (decryptedText.equals(".bye")) {
+               System.out.println("Good bye. Press RETURN to exit ...");
+               stop();
+            }
+            // Or print text
+            else
+            {
+               System.out.println(splitInput[0] + " " + decryptedText);
+            }
+         }
       } catch (Exception e){
          System.out.println("Sending error: " + e.getMessage());
       }
