@@ -27,8 +27,8 @@ public class ChatServer implements Runnable
    private int otpLength = 32;
    private float numberPercent = 0.16129032f;  // 10 / (10 + 26 + 26)
 
-   BufferedReader input;
-   PrintWriter output;
+   // BufferedReader input;
+   // PrintWriter output;
 
    private static final String SERVER_KEY_STORE_PASSWORD  = "password";
    private static final String SERVER_TRUST_KEY_STORE_PASSWORD = "password";
@@ -99,21 +99,17 @@ public class ChatServer implements Runnable
          {  
             System.out.println("Waiting for a client ..."); 
 
-            // Thread validationThread = new Thread(){
-            //    public void run(){
-            //       try {
-            //          addThread(server.accept());
-            //       } catch (Exception e) {
-            //          e.printStackTrace();
-            //       }            
-            //    }
-            // };
-           
-            // validationThread.start();
-
             Socket serverAccept = server.accept();
 
-            addThread(serverAccept);
+            Thread validationThread = new Thread(){
+               public void run(){
+                  addThread(serverAccept);
+               }
+            };
+           
+            validationThread.start();
+
+            // addThread(serverAccept);
          }
          catch(IOException ioe)
          {  System.out.println("Server accept error: " + ioe); stop(); }
@@ -201,7 +197,7 @@ public class ChatServer implements Runnable
          // Validate account
          try {
             // System.out.println("Receive account id and password");
-            input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
             String id = input.readLine();
             System.out.println("id: " + id);
@@ -209,7 +205,7 @@ public class ChatServer implements Runnable
             System.out.println("password: " + password);
 
             // System.out.println("Validate account");
-            output = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
+            PrintWriter output = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
 
             validAccount = accounts.Contain(id, password);
 
